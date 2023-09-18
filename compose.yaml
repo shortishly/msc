@@ -14,8 +14,6 @@ services:
       - ./etc/m0.cnf:/etc/my.cnf
     ports:
       - 3306:3306
-    pull_policy:
-      ${PULL_POLICY:-missing}
 volumes:
   m0:
     driver: local
