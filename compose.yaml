@@ -2,7 +2,7 @@
 services:
   m0:
     image:
-      ${MYSQL_IMAGE:-mysql:${MYSQL_VERSION:-8.1}}
+      ${MYSQL_IMAGE:-mysql:8.1}
     environment:
       MYSQL_ROOT_PASSWORD: secret
     command:
