@@ -1,0 +1,108 @@
+---
+name: ci
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+jobs:
+  build:
+    strategy:
+      matrix:
+        otp:
+          - 26
+        db:
+          - mysql:8.1
+          - mysql:8.0
+        tls:
+          - ''
+          - 'TLSv1.2'
+          - 'TLSv1.3'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: >-
+          docker-compose
+          up
+          --detach
+        env:
+          MYSQL_IMAGE: ${{matrix.db}}
+          TLS_VERSION: ${{matrix.tls}}
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{matrix.otp}}
+      - run: make all dialyze eunit
+      - run: make ct
+      - run: |
+          echo MATRIX_OTP="${{matrix.otp}}" >> $GITHUB_ENV
+      - run: |
+          echo MATRIX_DB="${{matrix.db}}" >> $GITHUB_ENV
+      - run: |
+          echo MATRIX_TLS="${{matrix.tls}}" >> $GITHUB_ENV
+      - run: |
+          echo ARTIFACT_NAME="ct-logs-otp-${MATRIX_OTP}-tls-${MATRIX_TLS}-db-${MATRIX_DB//[:\/]/-}" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ${{env.ARTIFACT_NAME}}
+          path: _site/ct
+  site:
+    needs: build
+    strategy:
+      matrix:
+        otp:
+          - 26
+        db:
+          - mysql:8.1
+        tls:
+          - 'TLSv1.3'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: >-
+          docker-compose
+          up
+          --detach
+        env:
+          MYSQL_IMAGE: ${{matrix.db}}
+          TLS_VERSION: ${{matrix.tls}}
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{matrix.otp}}
+      - run: make tests edoc
+      - uses: shortishly/coverdata@main
+        with:
+          input: _site/cover
+          output: _site/cover/coverage.json
+          otp-version: ${{matrix.otp}}
+      - uses: actions/upload-pages-artifact@v1
+        with:
+          path: _site
+  hex-publish:
+    if: github.ref_name != 'main' && github.ref_name != 'develop'
+    needs: build
+    strategy:
+      matrix:
+        otp:
+          - 26
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{matrix.otp}}
+      - run: make hex-release-publish
+        env:
+          HEX_SECRET: ${{ secrets.HEX_SECRET }}
+  deploy:
+    needs: site
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{steps.deployment.outputs.page_url}}
+    runs-on: ubuntu-latest
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v2

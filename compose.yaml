@@ -1,0 +1,21 @@
+---
+services:
+  m0:
+    image:
+      ${MYSQL_IMAGE:-mysql:${MYSQL_VERSION:-8.1}}
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+    command:
+      --binlog-row-metadata=full
+      --tls-version=${TLS_VERSION:-TLSv1.2,TLSv1.3}
+    volumes:
+      - m0:/var/lib/mysql
+      - ./initdb.d/m0:/docker-entrypoint-initdb.d/
+      - ./etc/m0.cnf:/etc/my.cnf
+    ports:
+      - 3306:3306
+    pull_policy:
+      ${PULL_POLICY:-missing}
+volumes:
+  m0:
+    driver: local
