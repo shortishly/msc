@@ -76,7 +76,7 @@ jobs:
       - run: make tests edoc
       - uses: shortishly/coverdata@main
         with:
-          input: _site/cover
+          input: _site
           output: _site/cover/coverage.json
           otp-version: ${{matrix.otp}}
       - uses: actions/upload-pages-artifact@v1
