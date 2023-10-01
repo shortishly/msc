@@ -13,8 +13,9 @@ jobs:
         otp:
           - 26
         db:
-          - mysql:8.1
+          - mariadb:11.1
           - mysql:8.0
+          - mysql:8.1
         tls:
           - ''
           - 'TLSv1.2'

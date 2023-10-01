@@ -1,2 +1,12 @@
 [mysqld]
 server-id = 100
+
+
+[mariadbd]
+# binlog_annotate_row_events=ON
+binlog_format=ROW
+binlog_row_image=FULL
+binlog_row_metadata=FULL
+# log_bin_compress_min_len=10
+# log_bin_compress=1
+log_bin=ON

@@ -28,13 +28,16 @@ start_link(Arg) ->
 
 
 init([Arg]) ->
-    {ok, {#{strategy => one_for_all}, children(Arg)}}.
+    {ok,
+     {#{auto_shutdown => any_significant},
+      children(Arg)}}.
 
 
 children(Arg) ->
     [worker(
        #{m => M,
          restart => temporary,
+         signficant => true,
          args => [Arg]}) || M <- workers()].
 
 

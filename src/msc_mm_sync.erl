@@ -19,14 +19,34 @@
 
 
 -export([binlog_dump/1]).
+-export([execute/1]).
+-export([prepare/1]).
 -export([query/1]).
+-export([stmt_close/1]).
+-export([stmt_reset/1]).
+
+
+binlog_dump(Arg) ->
+    receive_response(?FUNCTION_NAME, Arg).
+
+
+prepare(Arg) ->
+    receive_response(?FUNCTION_NAME, Arg).
+
+
+execute(Arg) ->
+    receive_response(?FUNCTION_NAME, Arg).
 
 
 query(Arg) ->
     receive_response(?FUNCTION_NAME, Arg).
 
 
-binlog_dump(Arg) ->
+stmt_close(Arg) ->
+    receive_response(?FUNCTION_NAME, Arg).
+
+
+stmt_reset(Arg) ->
     receive_response(?FUNCTION_NAME, Arg).
 
 

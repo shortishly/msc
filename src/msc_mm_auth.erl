@@ -38,16 +38,14 @@ handle_event(internal,
              {recv,
               #{packet := #{action := handshake,
                             character_set := CharacterSet,
-                            capability_flags_1 := LowerFlags,
-                            capability_flags_2 := UpperFlags,
                             auth_plugin_name := ClientPluginName} = Handshake,
                 sequence := Sequence} = Received},
              _,
              #{config := #{user := User,
-                           database := _Database,
+                           database := Database,
                            password := Password}} = Data) ->
 
-    case client_flags(maps:merge(LowerFlags, UpperFlags)) of
+    case client_flags(Handshake) of
 
         #{ssl := true} = ClientFlags ->
             {next_state,
@@ -63,10 +61,13 @@ handle_event(internal,
                    character_set => CharacterSet,
                    handshake => Received},
              [nei({send,
-                   #{packet => #{action => ssl_request,
-                                 client_flags => ClientFlags,
-                                 max_packet_size => msc_config:maximum(packet_size),
-                                 character_set => CharacterSet},
+                   #{packet => maps:merge(
+                                 maybe_extended_capabilities(
+                                   Handshake),
+                                 #{action => ssl_request,
+                                   client_flags => ClientFlags,
+                                   max_packet_size => msc_config:maximum(packet_size),
+                                   character_set => CharacterSet}),
                      sequence => Sequence + 1}}),
               nei(upgrade)]};
 
@@ -85,16 +86,19 @@ handle_event(internal,
                                    msmp_auth_more_data:decode(),
                                    msmp_packet_error:decode(ClientFlags)]))},
              nei({send,
-                  #{packet => #{action => handshake_response,
-                                client_flags => ClientFlags,
-                                max_packet_size => msc_config:maximum(packet_size),
-                                character_set => CharacterSet,
-                                username => User,
-                                auth_response => msmp_handshake_response:auth_response(
-                                                   Handshake,
-                                                   Password),
-                                connect_attrs => connect_attrs(),
-                                client_plugin_name => ClientPluginName},
+                  #{packet => maps:merge(
+                                maybe_extended_capabilities(Handshake),
+                                #{action => handshake_response,
+                                  client_flags => ClientFlags,
+                                  max_packet_size => msc_config:maximum(packet_size),
+                                  character_set => CharacterSet,
+                                  username => User,
+                                  auth_response => msmp_handshake_response:auth_response(
+                                                     Handshake,
+                                                     Password),
+                                  connect_attrs => connect_attrs(),
+                                  database => Database,
+                                  client_plugin_name => ClientPluginName}),
                     sequence => Sequence + 1}})}
     end;
 
@@ -120,7 +124,7 @@ handle_event(
     character_set := CharacterSet,
     client_flags := ClientFlags,
     config := #{user := User,
-                database := _Database,
+                database := Database,
                 password := Password}} = Data) ->
     {keep_state,
      Data#{client_flags => ClientFlags,
@@ -134,16 +138,19 @@ handle_event(
                            msmp_auth_more_data:decode(),
                            msmp_packet_error:decode(ClientFlags)]))},
      nei({send,
-          #{packet => #{action => handshake_response,
-                        client_flags => ClientFlags,
-                        max_packet_size => msc_config:maximum(packet_size),
-                        character_set => CharacterSet,
-                        username => User,
-                        auth_response => msmp_handshake_response:auth_response(
-                                           Handshake,
-                                           Password),
-                        connect_attrs => connect_attrs(),
-                        client_plugin_name => ClientPluginName},
+          #{packet => maps:merge(
+                        maybe_extended_capabilities(Handshake),
+                        #{action => handshake_response,
+                          client_flags => ClientFlags,
+                          max_packet_size => msc_config:maximum(packet_size),
+                          character_set => CharacterSet,
+                          username => User,
+                          auth_response => msmp_handshake_response:auth_response(
+                                             Handshake,
+                                             Password),
+                          connect_attrs => connect_attrs(),
+                          database => Database,
+                          client_plugin_name => ClientPluginName}),
             sequence => Sequence + 2}})};
 
 handle_event(
@@ -241,8 +248,9 @@ handle_event(
   authenticating,
   #{client_flags := ClientFlags,
     character_set := CharacterSet,
+    handshake := #{packet := Handshake},
     config := #{user := User,
-                database := _Database,
+                database := Database,
                 password := Password}} = Data) ->
     {keep_state,
      Data#{decoder => msmp_codec:decode(
@@ -250,16 +258,19 @@ handle_event(
                           [msmp_packet_ok:decode(ClientFlags),
                            msmp_packet_error:decode(ClientFlags)]))},
      nei({send,
-          #{packet => #{action => handshake_response,
-                        client_flags => ClientFlags,
-                        max_packet_size => msc_config:maximum(packet_size),
-                        character_set => CharacterSet,
-                        username => User,
-                        auth_response => msmp_handshake_response:auth_response(
-                                           AuthSwitchRequest,
-                                           Password),
-                        connect_attrs => connect_attrs(),
-                        client_plugin_name => PluginName},
+          #{packet => maps:merge(
+                        maybe_extended_capabilities(Handshake),
+                        #{action => handshake_response,
+                          client_flags => ClientFlags,
+                          max_packet_size => msc_config:maximum(packet_size),
+                          character_set => CharacterSet,
+                          username => User,
+                          auth_response => msmp_handshake_response:auth_response(
+                                             AuthSwitchRequest,
+                                             Password),
+                          connect_attrs => connect_attrs(),
+                          database => Database,
+                          client_plugin_name => PluginName}),
             sequence => Sequence + 1}})};
 
 handle_event(EventType, EventContent, State, Data) ->
@@ -269,17 +280,23 @@ handle_event(EventType, EventContent, State, Data) ->
                                Data).
 
 
-client_flags(HandshakeFlags) ->
+client_flags(#{capability_flags_1 := LowerFlags,
+               capability_flags_2 := UpperFlags}) ->
     maps:map(
       fun
           (Name, Status) ->
               Status andalso msc_config:client_flag(Name)
       end,
-      HandshakeFlags).
+      maps:merge(LowerFlags, UpperFlags)).
 
 
 connect_attrs() ->
-    #{}.
+    #{<<"_client_name">> => <<"libmariadb">>,
+      <<"_client_version">> => <<"3.3.6">>,
+      <<"_os">> => <<"Linux">>,<<"_pid">> => <<"166">>,
+      <<"_platform">> => <<"aarch64">>,
+      <<"_server_host">> => <<"m0">>,
+      <<"program_name">> => <<"mysql">>}.
 
 
 pem_decode([#'RSAPublicKey'{} = PublicKey]) ->
@@ -294,3 +311,9 @@ pem_decode(Encoded) ->
 
 exor(To, Pattern) when size(To) =< size(Pattern) ->
     crypto:exor(To, binary:part(Pattern, {0, size(To)})).
+
+
+maybe_extended_capabilities(#{extended_capabilities := _}) ->
+    #{extended_capabilities => 0};
+maybe_extended_capabilities(#{}) ->
+    #{}.

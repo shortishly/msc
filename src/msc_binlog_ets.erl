@@ -60,9 +60,12 @@ handle_event(
 
 handle_event(
   {call, From},
-  {write_rows, #{rows := Rows, table_id := TableId}},
+  {Event, #{rows := Rows, table_id := TableId}},
   _,
-  #{mapped := Mapped}) when is_map_key(TableId, Mapped) ->
+  #{mapped := Mapped}) when (Event == write_rows orelse
+                             Event == write_rows_compressed_v1 orelse
+                             Event == write_rows_v1) andalso
+                            is_map_key(TableId, Mapped) ->
     #{TableId := Mapping} = Mapped,
     ets:insert(table_name(Mapping),
                [insert_or_update_tuple(Row, Mapping) || Row <- Rows]),
@@ -73,8 +76,13 @@ handle_event({call, From}, _Event, _State, _Data) ->
 
 
 new_table(Mapping) ->
-    ets:new(table_name(Mapping),
-            [{keypos, keypos(Mapping)}, protected, named_table]).
+    try
+        ets:new(table_name(Mapping),
+                [{keypos, keypos(Mapping)}, protected, named_table])
+    catch
+        error:badarg ->
+            ok
+    end.
 
 
 table_name(#{table := Table, database := Database}) ->

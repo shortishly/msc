@@ -41,11 +41,11 @@ make shell
 Connect to the database, run a very simple query:
 
 ```erlang
-1> URI = <<"mysql://root:secret@localhost:3306/test">>.
-2> {ok, Supervisor} = msc_connections_sup:start_child(URI).
-3> MM = msc_sup:get_child_pid(Supervisor, mm).
-4> msc_mm_sync:query(#{server_ref => MM,
-                       query => <<"select 2 + 2">>}).
+URI = <<"mysql://root:secret@localhost:3306/test">>.
+{ok, Supervisor} = msc_connections_sup:start_child(URI).
+MM = msc_sup:get_child_pid(Supervisor, mm).
+msc_mm_sync:query(#{server_ref => MM, query => <<"select 2 + 2">>}).
+
 {[#{decimals => 0,flags => 129,name => <<"2 + 2">>,
     table => <<>>,type => 8,character_set => 63,
     reserved0 => <<0,0>>,
@@ -58,14 +58,20 @@ Connect to the database, run a very simple query:
 Replicate data into ETS:
 
 ```erlang
-1> URI = <<"mysql://root:secret@localhost:3306/test">>.
-2> {ok, Supervisor} = msc_connections_sup:start_child(URI).
-3> MM = msc_sup:get_child_pid(Supervisor, mm).
-4> SQL = <<"SET @master_binlog_checksum = @@global.binlog_checksum, @source_binlog_checksum = @@global.binlog_checksum">>.
-5> msc_mm_sync:query(#{server_ref => MM, query => SQL}).
-6> {ok, _} = msc_binlog_ets:start().
-7> msc_mm_sync:binlog_dump(#{server_ref => MM, call_back => msc_binlog_ets}).
-8> ets:i(test_t7).
+URI = <<"mysql://root:secret@localhost:3306/test">>.
+{ok, Supervisor} = msc_connections_sup:start_child(URI).
+MM = msc_sup:get_child_pid(Supervisor, mm).
+SQL = <<"SET @master_binlog_checksum = @@global.binlog_checksum, @source_binlog_checksum = @@global.binlog_checksum">>.
+msc_mm_sync:query(#{server_ref => MM, query => SQL}).
+
+{ok, _} = msc_binlog_ets:start().
+msc_mm_sync:binlog_dump(#{server_ref => MM, call_back => msc_binlog_ets}).
+```
+
+Check some of the example tables that have been replicated:
+
+```erlang
+ets:i(test_t7).
 ```
 
 [erlang-org]: https://www.erlang.org

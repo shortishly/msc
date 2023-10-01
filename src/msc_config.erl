@@ -94,6 +94,16 @@ client_flag(long_password = Name) ->
            names => [?FUNCTION_NAME, Name],
            default => true});
 
+client_flag(reserved2 = Name) ->
+    envy(#{caller => ?MODULE,
+           names => [?FUNCTION_NAME, Name],
+           default => true});
+
+client_flag(connect_with_db = Name) ->
+    envy(#{caller => ?MODULE,
+           names => [?FUNCTION_NAME, Name],
+           default => true});
+
 client_flag(Name) ->
     envy(#{caller => ?MODULE,
            names => [?FUNCTION_NAME, Name],

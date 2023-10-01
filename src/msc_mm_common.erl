@@ -33,11 +33,13 @@ handle_event(internal,
              #{requests := Requests,
                encoder := Encoder,
                socket := Socket} = Data) ->
+    Encoded = Encoder(Message),
+    ?LOG_DEBUG(#{message => Message, encoded => Encoded}),
     {keep_state,
      Data#{requests := msc_socket:send(
                          #{server_ref => Socket,
                            label => {?MODULE, Action},
-                           message => Encoder(Message),
+                           message => Encoded,
                            requests => Requests})}};
 
 handle_event(internal,
@@ -72,8 +74,11 @@ handle_event({call, From},
              {recv, <<Length:24/little, _:8, _:Length/bytes>> = Encoded},
              _,
              #{decoder := Decoder}) ->
+    ?LOG_DEBUG(#{encoded => Encoded}),
+
     case Decoder(Encoded) of
         {<<>>, Decoded} ->
+            ?LOG_DEBUG(#{decoded => Decoded}),
             {keep_state_and_data, [{reply, From, ok}, nei({recv, Decoded})]};
 
         nomatch ->

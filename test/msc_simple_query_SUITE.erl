@@ -19,6 +19,7 @@
 -compile(export_all).
 -compile(nowarn_export_all).
 -include_lib("common_test/include/ct.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 
 all() ->
@@ -38,19 +39,12 @@ end_per_suite(_Config) ->
 
 two_plus_two_test(Config) ->
     MM = ?config(mm, Config),
-    {[#{decimals := 0,
-        flags := 129,
-        name := <<"2 + 2">>,
-        table := <<>>,
-        type := 8,
-        character_set := 63,
-        reserved0 := <<0,0>>,
-        catalog := <<"def">>,
-        schema := <<>>,
-        org_table := <<>>,
-        org_name := <<>>,
-        length_of_fixed_length_fields := 12,
-        column_length := 3}],
-     [[<<"4">>]]} = msc_mm_sync:query(
-            #{server_ref => MM,
-              query => <<"select 2 + 2">>}).
+    ?assertMatch(
+       {[#{name := <<"2 + 2">>,
+           table := <<>>,
+           schema := <<>>,
+           catalog := <<"def">>}],
+         [[4]]},
+       msc_mm_sync:query(
+         #{server_ref => MM,
+           query => <<"select 2 + 2">>})).

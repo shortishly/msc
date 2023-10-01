@@ -20,12 +20,16 @@
 
 -export([binlog_dump/1]).
 -export([callback_mode/0]).
+-export([execute/1]).
 -export([handle_event/4]).
 -export([init/1]).
+-export([prepare/1]).
 -export([query/1]).
 -export([recv/1]).
 -export([register_replica/1]).
 -export([start_link/1]).
+-export([stmt_close/1]).
+-export([stmt_reset/1]).
 -import(msc_statem, [nei/1]).
 -import(msc_statem, [send_request/1]).
 -include_lib("kernel/include/logger.hrl").
@@ -35,15 +39,19 @@ start_link(Arg) ->
     gen_statem:start_link(?MODULE, [Arg], envy_gen:options(?MODULE)).
 
 
-recv(#{message := Message} = Arg) ->
-    send_request(
-      maps:without(
-        [message],
-        maybe_label(
-          Arg#{request => {?FUNCTION_NAME, Message}}))).
+binlog_dump(Arg) ->
+    send_request(Arg, ?FUNCTION_NAME).
 
 
 query(Arg) ->
+    send_request(Arg, ?FUNCTION_NAME).
+
+
+prepare(Arg) ->
+    send_request(Arg, ?FUNCTION_NAME).
+
+
+execute(Arg) ->
     send_request(Arg, ?FUNCTION_NAME).
 
 
@@ -51,7 +59,11 @@ register_replica(Arg) ->
     send_request(Arg, ?FUNCTION_NAME).
 
 
-binlog_dump(Arg) ->
+stmt_close(Arg) ->
+    send_request(Arg, ?FUNCTION_NAME).
+
+
+stmt_reset(Arg) ->
     send_request(Arg, ?FUNCTION_NAME).
 
 
@@ -76,6 +88,19 @@ config(binlog_dump) ->
 
 config(query) ->
     [{parameter_count, 0}, {parameter_set, 1}, query];
+
+config(prepare) ->
+    [query];
+
+config(execute) ->
+    [{parameters, []},
+     statement_id];
+
+config(stmt_close) ->
+    [statement_id];
+
+config(stmt_reset) ->
+    [statement_id];
 
 config(register_replica) ->
     [{port, 3306},
@@ -122,6 +147,14 @@ maybe_label(Arg) ->
     Arg.
 
 
+recv(#{message := Message} = Arg) ->
+    send_request(
+      maps:without(
+        [message],
+        maybe_label(
+          Arg#{request => {?FUNCTION_NAME, Message}}))).
+
+
 init([Arg]) ->
     process_flag(trap_exit, true),
     {ok,
@@ -131,6 +164,7 @@ init([Arg]) ->
                     msmp_handshake:decode()),
        encoder => msmp_codec:encode(
                     msmp_handshake_response:encode()),
+       prepared => #{},
        config => Arg},
      nei(peer)}.
 
@@ -152,36 +186,15 @@ handle_event(internal, peer, _, Data) ->
     end;
 
 handle_event({call, From},
-             {request, #{action := binlog_dump}},
+             {request, #{action := Action}},
              authenticated,
              Data) ->
     {next_state,
-     {binlog_dump, From},
+     {Action, From},
      Data,
-     [{push_callback_module, msc_mm_binlog_dump}, postpone]};
-
-handle_event({call, From},
-             {request, #{action := query}},
-             authenticated,
-             Data) ->
-    {next_state,
-     {query, From},
-     Data,
-     [{push_callback_module, msc_mm_query}, postpone]};
-
-handle_event({call, From},
-             {request, #{action := register_replica}},
-             authenticated,
-             Data) ->
-    {next_state,
-     {register_replica, From},
-     Data,
-     [{push_callback_module, msc_mm_register_replica}, postpone]};
-
-handle_event({call, From}, {request, Packet}, authenticated, _) ->
-    {keep_state_and_data,
-     [{reply, From, ok},
-      nei({send, #{packet => Packet, sequence => 0}})]};
+     [{push_callback_module,
+       msc_util:snake_case([msc_mm, Action])},
+      postpone]};
 
 handle_event({call, _}, {request, _}, _, _) ->
     {keep_state_and_data, [nei(connect), postpone]};

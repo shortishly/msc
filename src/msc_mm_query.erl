@@ -34,12 +34,12 @@ handle_event({call, From},
     {keep_state,
      Data#{decoder := msmp_codec:decode(
                         scran_branch:alt(
-                          [msmp_query_column_count:decode(),
+                          [msmp_column_count:decode(),
                            msmp_packet_ok:decode(ClientFlags),
                            msmp_packet_error:decode(ClientFlags)])),
            query => #{columns => #{definitions => []},
                       rows => []},
-           encoder := msmp_codec:encode(msmp_com_query:encode())},
+           encoder := msmp_codec:encode(msmp_com_query:encode(ClientFlags))},
      nei({send, #{packet => Packet, sequence => 0}})};
 
 handle_event({call, _}, {request, _}, _, _) ->
@@ -48,12 +48,12 @@ handle_event({call, _}, {request, _}, _, _) ->
 handle_event(
   internal,
   {recv,
-   #{packet := #{action := query_column_count, column_count := ColumnCount}}},
+   #{packet := #{action := column_count, column_count := ColumnCount}}},
   _,
   #{query := #{columns := Columns} = Query} = Data) ->
     {keep_state,
      Data#{decoder := msmp_codec:decode(
-                        msmp_query_column_definition:decode()),
+                        msmp_column_definition:decode()),
            query := Query#{columns := Columns#{count => ColumnCount}}}};
 
 handle_event(internal,
@@ -82,7 +82,7 @@ handle_event(internal,
 
 handle_event(
   internal,
-  {recv, #{packet := #{action := query_column_definition} = Packet}},
+  {recv, #{packet := #{action := column_definition} = Packet}},
   _,
   #{query := #{columns := #{definitions := Definitions,
                             count := ColumnCount}}})
@@ -91,13 +91,13 @@ handle_event(
 
 handle_event(
   internal,
-  {recv, #{packet := #{action := query_column_definition} = Packet}},
+  {recv, #{packet := #{action := column_definition} = Packet}},
   _,
   #{client_flags := ClientFlags} = Data) ->
     {keep_state,
      Data#{decoder := msmp_codec:decode(
                         scran_branch:alt(
-                          [msmp_text_resultset:decode(),
+                          [msmp_text_resultset_row:decode(),
                            msmp_packet_eof:decode(ClientFlags)]))},
      nei({add_definition, Packet})};
 
@@ -105,24 +105,34 @@ handle_event(
   internal,
   {add_definition, Packet},
   _,
-  #{query :=
-        #{columns :=
-              #{definitions := Definitions} = Columns} = Query} = Data) ->
+  #{query := #{columns := #{definitions := Defs} = Cols} = Query} = Data) ->
     {keep_state,
-     Data#{query :=
-               Query#{columns :=
-                          Columns#{definitions :=
-                                       [maps:without(
-                                          [action],
-                                          Packet) |
-                                        Definitions]}}}};
+     Data#{query := Query#{columns := Cols#{definitions := Defs ++
+                                                [maps:without(
+                                                   [action],
+                                                   Packet)]}}}};
 
 handle_event(
   internal,
-  {recv, #{packet := #{action := text_resultset, row := Row}}},
+  {recv, #{packet := #{action := text_resultset_row, row := Row}}},
   _,
-  #{query := #{rows := Rows} = Query} = Data) ->
-    {keep_state, Data#{query := Query#{rows := [Row | Rows]}}};
+  #{query := #{columns := #{definitions := Definitions}}}) ->
+    {keep_state_and_data,
+     nei({add_row,
+          lists:map(
+            fun
+                ({Definition, Column}) ->
+                    {<<>>, Decoded} = (msmp_text:decode(Definition))(Column),
+                    Decoded
+            end,
+            lists:zip(Definitions, Row))})};
+
+handle_event(internal,
+             {add_row, Row},
+             _,
+             #{query := #{rows := Rows} = Query} = Data) ->
+    {keep_state,
+     Data#{query := Query#{rows := [Row | Rows]}}};
 
 handle_event(internal,
              {recv, #{packet := #{action := eof}}},
@@ -133,7 +143,15 @@ handle_event(internal,
      authenticated,
      maps:without([query], Data),
      [pop_callback_module,
-      {reply, From, {lists:reverse(Columns), lists:reverse(Rows)}}]};
+      {reply,
+       From,
+       {lists:map(
+          fun
+              (Column) ->
+                  maps:with([catalog, schema, name, table, type], Column)
+          end,
+          Columns),
+        lists:reverse(Rows)}}]};
 
 handle_event(EventType, EventContent, State, Data) ->
     msc_mm_common:handle_event(EventType,

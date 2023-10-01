@@ -57,9 +57,14 @@ dep_envy = git https://github.com/shortishly/envy.git
 dep_msmp =  git https://github.com/shortishly/msmp.git
 dep_telemetry = git https://github.com/beam-telemetry/telemetry.git
 
+# dep_msmp = ln ../../msmp
+
+
 dep_backoff_commit = 1.1.6
 dep_envy_commit = 0.8.0
 dep_telemetry_commit = v1.1.0
 
 
 include $(if $(ERLANG_MK_FILENAME),$(ERLANG_MK_FILENAME),erlang.mk)
+
+app:: rebar.config
