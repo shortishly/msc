@@ -33,6 +33,11 @@ jobs:
       - uses: erlef/setup-beam@v1
         with:
           otp-version: ${{matrix.otp}}
+      - run: >-
+          sleep 30
+      - run: >-
+          docker-compose
+          logs
       - run: make all dialyze eunit
       - run: make ct
       - run: |
