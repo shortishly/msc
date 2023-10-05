@@ -131,7 +131,13 @@ args(Action, Arg, Config) ->
               A#{Parameter => maps:get(Parameter, Arg, Default)};
 
           (Parameter, A) ->
-              A#{Parameter => maps:get(Parameter, Arg)}
+              case maps:find(Parameter, Arg) of
+                  {ok, Value} ->
+                      A#{Parameter => Value};
+
+                  error ->
+                      error(arg_missing, [Parameter])
+              end
       end,
       #{action => Action},
       Config).

@@ -34,6 +34,12 @@ handle_event({call, From}, {request, _}, {error, _} = Error, _) ->
 handle_event({call, _}, {request, _}, _, _) ->
     {keep_state_and_data, postpone};
 
+
+%% Receive a handshake from the server. If we agree on TLS, then reply
+%% with a SSL request while upgrading the socket to TLS. Otherwise,
+%% without TLS we proceed with a handshake response to initiate
+%% authentication.
+%%
 handle_event(internal,
              {recv,
               #{packet := #{action := handshake,
@@ -48,6 +54,9 @@ handle_event(internal,
     case client_flags(Handshake) of
 
         #{ssl := true} = ClientFlags ->
+            %% We agree on TLS, reply with a SSL request packet, while
+            %% upgrading the socket to TLS.
+            %%
             {next_state,
              authenticating,
              Data#{encoder => msmp_codec:encode(
@@ -72,6 +81,9 @@ handle_event(internal,
               nei(upgrade)]};
 
         #{ssl := false} = ClientFlags ->
+            %% TLS is not acceptable, respond with a handshake to
+            %% initiate authentication.
+            %%
             {next_state,
              authenticating,
              Data#{client_flags => ClientFlags,
@@ -102,6 +114,8 @@ handle_event(internal,
                     sequence => Sequence + 1}})}
     end;
 
+%% Stop if an error occurs while upgrading the socket to TLS
+%%
 handle_event(internal,
              {response,
               #{label := {msc_mm_common, upgrade},
@@ -110,6 +124,9 @@ handle_event(internal,
              _) ->
     {stop, Reason};
 
+%% The process of upgrading the socket to TLS has completed. Proceed
+%% with a handshake response to complete authentication.
+%%
 handle_event(
   internal,
   {response,
@@ -153,6 +170,11 @@ handle_event(
                           client_plugin_name => ClientPluginName}),
             sequence => Sequence + 2}})};
 
+
+%% The server has responded with a request to perform full
+%% authentication. We are using TLS, send the password to server in
+%% plain text.
+%%
 handle_event(
   internal,
   {recv,
@@ -168,6 +190,11 @@ handle_event(
                         msmp_string_null_terminated:encode())},
      nei({send, #{sequence => Sequence + 1, packet => Password}})};
 
+
+%% The server has responded with a request to perform full
+%% authentication. We are not using TLS. Request a public key from the
+%% server and use that to encrypt the password.
+%%
 handle_event(
   internal,
   {recv,
@@ -187,6 +214,11 @@ handle_event(
                         msmp_integer_fixed:encode(1))},
      nei({send, #{sequence => Sequence + 1, packet => 2}})};
 
+
+%% As part of the perform full authentication process when without
+%% TLS. We have received a public key from the server, which is used
+%% to encrypt the password.
+%%
 handle_event(
   internal,
   {recv,
@@ -215,6 +247,10 @@ handle_event(
                         pem_decode(PublicKey),
                         [{rsa_padding, rsa_pkcs1_oaep_padding}])}})};
 
+
+%% An informational message from the server that fast authentication
+%% has succeeded.
+%%
 handle_event(
   internal,
   {recv,
@@ -224,6 +260,10 @@ handle_event(
   #{handshake := #{packet := #{auth_plugin_name := caching_sha2_password}}}) ->
     keep_state_and_data;
 
+
+%% An OK from the server indicates that the authentication process has
+%% completed successfully.
+%%
 handle_event(internal,
              {recv, #{packet := #{action := ok}}},
              authenticating,
@@ -233,12 +273,18 @@ handle_event(internal,
      maps:without([handshake], Data),
      pop_callback_module};
 
+
+%% The authentication process has not completed successfully.
 handle_event(internal,
              {recv, #{packet := #{action := error} = Packet}},
              authenticating,
              Data) ->
     {next_state, {error, maps:without([action], Packet)}, Data};
 
+
+%% The server is negotiating to use a different authentication plugin,
+%% or client parameters.
+%%
 handle_event(
   internal,
   {recv,

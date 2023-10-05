@@ -18,3 +18,7 @@
 [msc, socket, error].
 [msc, socket, recv].
 [msc, socket, send].
+
+[msc, mm, recv].
+[msc, mm, send].
+[msc, mm, upgrade].

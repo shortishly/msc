@@ -28,30 +28,51 @@ callback_mode() ->
 
 
 handle_event(internal,
-             {send = Action, Message},
+             {send = Command, #{packet := #{} = Packet} = Decoded},
              _,
              #{requests := Requests,
                encoder := Encoder,
                socket := Socket} = Data) ->
-    Encoded = Encoder(Message),
-    ?LOG_DEBUG(#{message => Message, encoded => Encoded}),
+    Encoded = Encoder(Decoded),
+    ?LOG_DEBUG(#{decoded => Decoded, encoded => Encoded}),
     {keep_state,
      Data#{requests := msc_socket:send(
                          #{server_ref => Socket,
-                           label => {?MODULE, Action},
+                           label => {?MODULE, Command},
+                           message => Encoded,
+                           requests => Requests})},
+     nei({telemetry,
+          Command,
+          maps:merge(
+            #{count => 1},
+            maps:with([action], Packet))})};
+
+handle_event(internal,
+             {send = Command, Decoded},
+             _,
+             #{requests := Requests,
+               encoder := Encoder,
+               socket := Socket} = Data) ->
+    Encoded = Encoder(Decoded),
+    ?LOG_DEBUG(#{decoded => Decoded, encoded => Encoded}),
+    {keep_state,
+     Data#{requests := msc_socket:send(
+                         #{server_ref => Socket,
+                           label => {?MODULE, Command},
                            message => Encoded,
                            requests => Requests})}};
 
 handle_event(internal,
-             upgrade = Action,
+             upgrade = Command,
              _,
              #{requests := Requests,
                socket := Socket} = Data) ->
     {keep_state,
      Data#{requests := msc_socket:upgrade(
                          #{server_ref => Socket,
-                           label => {?MODULE, Action},
-                           requests => Requests})}};
+                           label => {?MODULE, Command},
+                           requests => Requests})},
+     nei({telemetry, Command, #{count => 1}})};
 
 handle_event(internal, {response, #{label := {?MODULE, _}, reply := ok}}, _, _) ->
     keep_state_and_data;
@@ -71,17 +92,63 @@ handle_event(info, Msg, _, #{requests := Existing} = Data) ->
     end;
 
 handle_event({call, From},
-             {recv, <<Length:24/little, _:8, _:Length/bytes>> = Encoded},
+             {recv = Command,
+              <<Length:24/little, _:8, _:Length/bytes>> = Encoded},
              _,
              #{decoder := Decoder}) ->
     ?LOG_DEBUG(#{encoded => Encoded}),
 
     case Decoder(Encoded) of
-        {<<>>, Decoded} ->
+        {<<>>,
+         #{packet := #{action := log_event,
+                       header := #{event_type := Action}}} = Decoded} ->
             ?LOG_DEBUG(#{decoded => Decoded}),
-            {keep_state_and_data, [{reply, From, ok}, nei({recv, Decoded})]};
+            {keep_state_and_data,
+             [{reply, From, ok},
+              nei({telemetry,
+                   Command,
+                   #{count => 1, action => Action}}),
+              nei({Command, Decoded})]};
+
+        {<<>>, #{packet := Packet} = Decoded} ->
+            ?LOG_DEBUG(#{decoded => Decoded}),
+            {keep_state_and_data,
+             [{reply, From, ok},
+              nei({telemetry,
+                   Command,
+                   maps:merge(
+                     #{count => 1},
+                     maps:with([action], Packet))}),
+              nei({Command, Decoded})]};
 
         nomatch ->
             ?LOG_WARNING(#{nomatch => Encoded}),
-            {keep_state_and_data, {reply, From, ok}}
-    end.
+            {keep_state_and_data,
+             [{reply, From, ok},
+              nei({telemetry, Command, #{error => 1}})]}
+    end;
+
+handle_event(internal,
+             {telemetry, EventName, Measurements},
+             _,
+             _) ->
+    {keep_state_and_data,
+     nei({telemetry, EventName, Measurements, #{}})};
+
+handle_event(internal,
+             {telemetry, EventName, Measurements, Metadata},
+             _,
+             _) when is_atom(EventName) ->
+    {keep_state_and_data,
+     nei({telemetry, [EventName], Measurements, Metadata})};
+
+handle_event(internal,
+             {telemetry, EventName, Measurements, Metadata},
+             _,
+             Data) ->
+    ok = telemetry:execute([msc, mm] ++ EventName,
+                           Measurements,
+                           maps:merge(
+                             maps:with([client_flags], Data),
+                             Metadata)),
+    keep_state_and_data.
