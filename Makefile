@@ -54,10 +54,11 @@ SHELL_OPTS += -s $(PROJECT)
 SHELL_OPTS += -s sync
 
 dep_envy = git https://github.com/shortishly/envy.git
-dep_msmp =  git https://github.com/shortishly/msmp.git
+dep_msmp = $(if $(DEP_LN),ln ../../msmp,git https://github.com/shortishly/msmp.git)
+dep_narcs = $(if $(DEP_LN),ln ../../narcs,git https://github.com/shortishly/narcs.git)
+dep_phrase = $(if $(DEP_LN),ln ../../phrase,git https://github.com/shortishly/phrase.git)
+dep_scran = $(if $(DEP_LN),ln ../../scran,git https://github.com/shortishly/scran.git)
 dep_telemetry = git https://github.com/beam-telemetry/telemetry.git
-
-# dep_msmp = ln ../../msmp
 
 
 dep_backoff_commit = 1.1.6

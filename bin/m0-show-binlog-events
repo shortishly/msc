@@ -14,4 +14,7 @@
 # limitations under the License.
 #
 
-docker compose exec m0 mysql -h localhost -u root -psecret -e 'show binlog events'
+CMD="$(basename "$0")"
+SERVICE="${CMD/-*/}"
+IMAGE=$(docker compose ps --format json "$SERVICE"|jq -r .Image)
+docker compose exec "$SERVICE" "${IMAGE/:*/}" -h localhost -u root -psecret -e 'show binlog events'

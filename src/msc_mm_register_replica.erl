@@ -35,6 +35,8 @@ handle_event({call, From},
            encoder := msmp_codec:encode(msmp_register_replica:encode())},
      nei({send, #{packet => Packet, sequence => 0}})};
 
+handle_event({call, _}, {request, _}, _, _) ->
+    {keep_state_and_data, postpone};
 
 handle_event(internal,
              {recv, #{packet := #{action := ok} = Packet}},

@@ -19,10 +19,12 @@
 
 
 -export([binlog_dump/1]).
+-export([binlog_dump_gtid/1]).
 -export([callback_mode/0]).
 -export([execute/1]).
 -export([handle_event/4]).
 -export([init/1]).
+-export([operator/1]).
 -export([prepare/1]).
 -export([query/1]).
 -export([recv/1]).
@@ -40,6 +42,10 @@ start_link(Arg) ->
 
 
 binlog_dump(Arg) ->
+    send_request(Arg, ?FUNCTION_NAME).
+
+
+binlog_dump_gtid(Arg) ->
     send_request(Arg, ?FUNCTION_NAME).
 
 
@@ -67,6 +73,10 @@ stmt_reset(Arg) ->
     send_request(Arg, ?FUNCTION_NAME).
 
 
+operator(Arg) ->
+    send_request(Arg, ?FUNCTION_NAME).
+
+
 send_request(Arg, Action) ->
     ?FUNCTION_NAME(Arg, Action, config(Action)).
 
@@ -86,6 +96,15 @@ config(binlog_dump) ->
      call_back,
      {binlog_filename, <<>>}];
 
+
+config(binlog_dump_gtid) ->
+    [{flags, 2},
+     {position, 4},
+     {server_id, 200},
+     call_back,
+     {name, <<>>},
+     {gtids, []}];
+
 config(query) ->
     [{parameter_count, 0}, {parameter_set, 1}, query];
 
@@ -101,6 +120,9 @@ config(stmt_close) ->
 
 config(stmt_reset) ->
     [statement_id];
+
+config(operator) ->
+    [];
 
 config(register_replica) ->
     [{port, 3306},
@@ -192,14 +214,19 @@ handle_event(internal, peer, _, Data) ->
     end;
 
 handle_event({call, From},
+             {request, #{action := operator}},
+             authenticated,
+             #{operator := Operator}) ->
+    {keep_state_and_data, {reply, From, Operator}};
+
+handle_event({call, From},
              {request, #{action := Action}},
              authenticated,
              Data) ->
     {next_state,
      {Action, From},
      Data,
-     [{push_callback_module,
-       msc_util:snake_case([msc_mm, Action])},
+     [{push_callback_module, action_callback_module(Action)},
       postpone]};
 
 handle_event({call, _}, {request, _}, _, _) ->
@@ -220,3 +247,10 @@ handle_event(EventType, EventContent, State, Data) ->
                                EventContent,
                                State,
                                Data).
+
+
+action_callback_module(binlog_dump_gtid) ->
+    ?FUNCTION_NAME(binlog_dump);
+
+action_callback_module(Action) ->
+    msc_util:snake_case([?MODULE, Action]).

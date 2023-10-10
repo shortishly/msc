@@ -14,7 +14,10 @@
 # limitations under the License.
 #
 
-CONTAINER_ID=$(docker compose ps --format json|jq -r '.[] | select(.Service == "m0").ID')
+CMD="$(basename "$0")"
+SERVICE="${CMD/-*/}"
+
+CONTAINER_ID=$(docker compose ps --format json "$SERVICE"|jq -r .ID)
 NET_SANDBOX=$(docker inspect --format '{{ .NetworkSettings.SandboxKey }}' "$CONTAINER_ID")
 
-sudo nsenter --net="$NET_SANDBOX" dumpcap -f "port 3306" -w /tmp/m0-"$(date --iso-8601=seconds)".pcap
+sudo nsenter --net="$NET_SANDBOX" dumpcap -f "port 3306" -w /tmp/my0-"$(date --iso-8601=seconds)".pcap

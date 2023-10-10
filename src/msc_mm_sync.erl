@@ -20,8 +20,10 @@
 
 -export([binlog_dump/1]).
 -export([execute/1]).
+-export([operator/1]).
 -export([prepare/1]).
 -export([query/1]).
+-export([register_replica/1]).
 -export([stmt_close/1]).
 -export([stmt_reset/1]).
 
@@ -30,15 +32,23 @@ binlog_dump(Arg) ->
     receive_response(?FUNCTION_NAME, Arg).
 
 
-prepare(Arg) ->
-    receive_response(?FUNCTION_NAME, Arg).
-
-
 execute(Arg) ->
     receive_response(?FUNCTION_NAME, Arg).
 
 
+operator(Arg) ->
+    receive_response(?FUNCTION_NAME, Arg).
+
+
+prepare(Arg) ->
+    receive_response(?FUNCTION_NAME, Arg).
+
+
 query(Arg) ->
+    receive_response(?FUNCTION_NAME, Arg).
+
+
+register_replica(Arg) ->
     receive_response(?FUNCTION_NAME, Arg).
 
 

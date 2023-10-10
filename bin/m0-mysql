@@ -14,4 +14,8 @@
 # limitations under the License.
 #
 
-docker compose exec m0 mysql --host localhost --port 3306 --ssl-mode=DISABLED -p
+CMD="$(basename "$0")"
+SERVICE="${CMD/-*/}"
+IMAGE=$(docker compose ps --format json "$SERVICE"|jq -r .Image)
+
+docker compose exec "$SERVICE" "${IMAGE/:*/}" --host "$SERVICE" --port 3306 -psecret

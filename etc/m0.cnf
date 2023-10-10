@@ -1,6 +1,7 @@
 [mysqld]
-server-id = 100
-
+server-id=100
+gtid-mode=ON
+enforce-gtid-consistency=ON
 
 [mariadbd]
 # binlog_annotate_row_events=ON

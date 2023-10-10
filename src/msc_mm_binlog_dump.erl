@@ -28,10 +28,12 @@ callback_mode() ->
 
 
 handle_event({call, From},
-             {request, #{action := binlog_dump,
+             {request, #{action := Action,
                          call_back := CallBack} = Packet},
-             {binlog_dump, From},
-             #{client_flags := ClientFlags} = Data) ->
+             {Action, From},
+             #{client_flags := ClientFlags} = Data)
+  when Action == binlog_dump;
+       Action == binlog_dump_gtid ->
     Mapped = #{mapped => #{}},
     {keep_state,
      Data#{decoder := msmp_codec:decode(
@@ -40,13 +42,22 @@ handle_event({call, From},
                            msmp_packet_error:decode(ClientFlags)])),
            binlog_dump => Mapped,
            call_back => CallBack,
-           encoder := msmp_codec:encode(msmp_binlog_dump:encode())},
+           encoder := msmp_codec:encode(
+                        case Action of
+                            binlog_dump ->
+                                msmp_binlog_dump:encode();
+
+                            binlog_dump_gtid ->
+                                msmp_binlog_dump_gtid:encode()
+                        end)},
      nei({send, #{packet => maps:without([call_back], Packet), sequence => 0}})};
 
 handle_event(internal,
              {recv, #{packet := #{action := error} = Packet}},
-             {binlog_dump, From},
-             _) ->
+             {Action, From},
+             _)
+  when Action == binlog_dump;
+       Action == binlog_dump_gtid ->
     {stop_and_reply,
      normal,
      {reply,
@@ -60,8 +71,10 @@ handle_event(
          #{header := #{event_type := format_description = EventType},
            event := Event,
            action := log_event}}},
-  {binlog_dump, From},
-  #{call_back := CallBack, requests := Requests} = Data) ->
+  {Action, From},
+  #{call_back := CallBack, requests := Requests} = Data)
+  when Action == binlog_dump;
+       Action == binlog_dump_gtid ->
     {keep_state,
      Data#{requests := gen_statem:send_request(
                          CallBack,
