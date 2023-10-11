@@ -5,13 +5,15 @@ services:
       ${MYSQL_IMAGE:-mysql:8.1}
     environment:
       MYSQL_ROOT_PASSWORD: secret
+      MARIADB_HOME: /etc/cnf/mariadb
+      MYSQL_HOME: /etc/cnf/mysql
     command:
       --binlog-row-metadata=full
       --tls-version=${TLS_VERSION:-TLSv1.2,TLSv1.3}
     volumes:
       - m0:/var/lib/mysql
       - ./initdb.d/m0:/docker-entrypoint-initdb.d/
-      - ./etc/m0.cnf:/etc/my.cnf
+      - ./etc:/etc/cnf
     ports:
       - 3306:3306
 volumes:
