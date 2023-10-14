@@ -104,6 +104,20 @@ handle_event(
 
 handle_event(
   internal,
+  {recv, #{packet := #{header := #{event_type := gtid = EventType,
+                                   server_id := ServerId},
+                       event := Event,
+                       action := log_event}}},
+  _,
+  #{call_back := CallBack, requests := Requests} = Data) ->
+    {keep_state,
+     Data#{requests := gen_statem:send_request(
+                         CallBack,
+                         {EventType, Event#{server_id => ServerId}},
+                         ?MODULE, Requests)}};
+
+handle_event(
+  internal,
   {recv, #{packet := #{header := #{event_type := EventType},
                        event := Event,
                        action := log_event}}},
