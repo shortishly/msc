@@ -233,14 +233,15 @@ handle_event({call, _}, {request, _}, _, _) ->
     {keep_state_and_data, [nei(connect), postpone]};
 
 handle_event(internal,
-             connect,
+             connect = Action,
              _,
              #{requests := Requests, socket := Socket} = Data) ->
     {keep_state,
      Data#{requests := msc_socket:connect(
                          #{server_ref => Socket,
                            requests => Requests})},
-     {push_callback_module, msc_mm_auth}};
+     [{state_timeout, msc_config:timeout(Action), connect},
+      {push_callback_module, msc_mm_auth}]};
 
 handle_event(EventType, EventContent, State, Data) ->
     msc_mm_common:handle_event(EventType,

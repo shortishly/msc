@@ -39,6 +39,7 @@ handle_event({call, From},
      Data#{decoder := msmp_codec:decode(
                         scran_branch:alt(
                           [msmp_binlog_network_stream:decode(Mapped),
+                           msmp_packet_eof:decode(ClientFlags),
                            msmp_packet_error:decode(ClientFlags)])),
            binlog_dump => Mapped,
            call_back => CallBack,
@@ -90,12 +91,16 @@ handle_event(
                  action := log_event}}},
   _,
   #{binlog_dump := #{mapped := Mapped} = Binlog,
+    client_flags := ClientFlags,
     call_back := CallBack,
     requests := Requests} = Data) ->
     Updated = Binlog#{mapped := Mapped#{TableId => maps:without([table_id], Event)}},
     {keep_state,
      Data#{decoder := msmp_codec:decode(
-                        msmp_binlog_network_stream:decode(Updated)),
+                        scran_branch:alt(
+                          [msmp_binlog_network_stream:decode(Updated),
+                           msmp_packet_eof:decode(ClientFlags),
+                           msmp_packet_error:decode(ClientFlags)])),
            requests := gen_statem:send_request(
                          CallBack,
                          {EventType, Event},
@@ -138,6 +143,12 @@ handle_event(internal,
              _,
              _) ->
     {stop, Reason};
+
+handle_event(internal,
+             {recv, #{packet := #{action := eof}}},
+             _,
+             _) ->
+    stop;
 
 handle_event(EventType, EventContent, State, Data) ->
     msc_mm_common:handle_event(EventType,

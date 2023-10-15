@@ -120,7 +120,7 @@ init([Arg]) ->
      disconnected,
      #{requests => gen_statem:reqids_new(),
        config => Arg,
-       telemetry => #{db => #{system => unknown}}},
+       telemetry => #{}},
      nei(peer)}.
 
 
@@ -330,7 +330,9 @@ handle_event(internal,
              _,
              #{telemetry := Telemetry} = Data) ->
 
-    case gen_tcp:connect(SockAddr, [{mode, binary}]) of
+    case gen_tcp:connect(SockAddr,
+                         [{mode, binary}],
+                         msc_config:timeout(EventName)) of
         {ok, Socket} ->
             {next_state,
              connected,

@@ -121,6 +121,11 @@ backoff(rand_increment = Name) ->
            default => 1}).
 
 
+timeout(connect = Name) ->
+    envy(#{caller => ?MODULE,
+           names => [Name, ?FUNCTION_NAME],
+           default => timer:seconds(5)});
+
 timeout(Name) ->
     envy(#{caller => ?MODULE,
            names => [Name, ?FUNCTION_NAME],

@@ -149,6 +149,6 @@ handle_event(internal,
     ok = telemetry:execute([msc, mm] ++ EventName,
                            Measurements,
                            maps:merge(
-                             maps:with([client_flags], Data),
+                             maps:with([operator, client_flags], Data),
                              Metadata)),
     keep_state_and_data.
