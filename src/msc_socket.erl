@@ -283,7 +283,10 @@ handle_event(info, Msg, _, #{requests := Existing} = Data) ->
         {{reply, Reply}, Label, Updated} ->
             {keep_state,
              Data#{requests := Updated},
-             nei({response, #{label => Label, reply => Reply}})};
+             [nei({telemetry,
+                   reqids_size,
+                   #{value => gen_statem:reqids_size(Updated)}}),
+              nei({response, #{label => Label, reply => Reply}})]};
 
         {{error, {Reason, _}}, _, UpdatedRequests} ->
             {stop, Reason, Data#{requests := UpdatedRequests}}

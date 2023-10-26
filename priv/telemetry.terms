@@ -17,8 +17,10 @@
 [msc, socket, connect].
 [msc, socket, error].
 [msc, socket, recv].
+[msc, socket, reqids_size].
 [msc, socket, send].
 
 [msc, mm, recv].
+[msc, mm, reqids_size].
 [msc, mm, send].
 [msc, mm, upgrade].
