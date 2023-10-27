@@ -318,14 +318,21 @@ handle_event(internal, {recv, Partial}, _, #{partial := <<>>} = Data) ->
     {keep_state, Data#{partial := Partial}};
 
 handle_event(internal,
-             connect,
+             connect = EventName,
              _,
              #{config := #{host := Host, port := Port}}) ->
-    {keep_state_and_data,
-     nei({connect,
-          #{family => inet,
-            port => Port,
-            addr => addr(Host)}})};
+    case addr(Host) of
+        {ok, Addr} ->
+            {keep_state_and_data,
+             nei({connect,
+                  #{family => inet,
+                    port => Port,
+                    addr => Addr}})};
+
+        {error, Reason} ->
+            {keep_state_and_data,
+             nei({error, #{reason => Reason, event => EventName}})}
+    end;
 
 handle_event(internal,
              {connect = EventName,
@@ -382,7 +389,7 @@ terminate(_Reason, _State, _Data) ->
 addr(Hostname) ->
     case inet:gethostbyname(binary_to_list(Hostname)) of
         {ok, #hostent{h_addr_list = Addresses}} ->
-            pick_one(Addresses);
+            {ok, pick_one(Addresses)};
 
         {error, _} = Error ->
             Error
