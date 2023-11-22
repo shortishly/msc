@@ -53,7 +53,7 @@ SHELL_OPTS += -enable-feature maybe_expr
 SHELL_OPTS += -s $(PROJECT)
 SHELL_OPTS += -s sync
 
-dep_envy = git https://github.com/shortishly/envy.git
+dep_envy = $(if $(DEP_LN),ln ../../envy,git https://github.com/shortishly/envy.git)
 dep_msmp = $(if $(DEP_LN),ln ../../msmp,git https://github.com/shortishly/msmp.git)
 dep_narcs = $(if $(DEP_LN),ln ../../narcs,git https://github.com/shortishly/narcs.git)
 dep_phrase = $(if $(DEP_LN),ln ../../phrase,git https://github.com/shortishly/phrase.git)
@@ -62,7 +62,7 @@ dep_telemetry = git https://github.com/beam-telemetry/telemetry.git
 
 
 dep_backoff_commit = 1.1.6
-dep_envy_commit = 0.8.0
+dep_envy_commit = 0.9.0
 dep_telemetry_commit = v1.1.0
 
 
