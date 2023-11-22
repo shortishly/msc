@@ -16,6 +16,7 @@ jobs:
           - mariadb:11.1
           - mysql:8.0
           - mysql:8.1
+          - percona:8
         tls:
           - "''"
           - 'TLSv1.2'
