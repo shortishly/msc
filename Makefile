@@ -63,7 +63,19 @@ dep_telemetry = git https://github.com/beam-telemetry/telemetry.git
 
 dep_backoff_commit = 1.1.6
 dep_envy_commit = 0.9.0
+dep_msmp_commit = 0.1.2
 dep_telemetry_commit = v1.1.0
+
+define HEX_TARBALL_EXTRA_METADATA
+#{
+	licenses => [<<"Apache-2">>],
+	links => #{
+		<<"Function reference">> => <<"https://shortishly.github.io/msc/edoc/">>,
+		<<"Test Coverage">> => <<"https://shortishly.github.io/msc/cover/">>,
+		<<"GitHub">> => <<"https://github.com/shortishly/msc">>
+	}
+}
+endef
 
 
 include $(if $(ERLANG_MK_FILENAME),$(ERLANG_MK_FILENAME),erlang.mk)
